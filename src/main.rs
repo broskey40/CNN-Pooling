@@ -70,13 +70,13 @@ impl Net {
 }
 
 // Implementing the forward pass of the CNN model with ReLU and Dropout.
-impl nn::ModuleT for Net {
+impl ModuleT for Net {
     fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
         xs.view([-1, 1, 28, 28])  // Reshape input to 1x28x28 images.
             .apply(&self.conv1)   // Apply first convolutional layer.
-            .max_pool2d_default(2) // Max pooling.
+            .avg_pool2d_default(2) // Avg pooling.
             .apply(&self.conv2)   // Apply second convolutional layer.
-            .max_pool2d_default(2) // Max pooling.
+            .avg_pool2d_default(2) // Avg pooling.
             .view([-1, 1024])     // Flatten.
             .apply(&self.fc1)     // Apply first linear layer.
             .relu()               // ReLU activation.
