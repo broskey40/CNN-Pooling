@@ -1,6 +1,7 @@
 use anyhow::{Result, Context};
 use flate2::read::GzDecoder;
 use std::{fs, fs::File, io::copy, path::Path};
+use std::fmt::{Debug, Formatter};
 use tch::{nn, nn::ModuleT, nn::OptimizerConfig, Device, Tensor, vision};
 use reqwest;
 
@@ -50,38 +51,69 @@ async fn main() -> Result<()> {
 }
 
 // CNN Model - Should reach around 99% accuracy.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+enum PoolingMethod {
+    Max,
+    Avg,
+}
+
 struct Net {
     conv1: nn::Conv2D,
     conv2: nn::Conv2D,
     fc1: nn::Linear,
     fc2: nn::Linear,
+    pooling: PoolingMethod,
 }
 
 impl Net {
     // Initializes a new CNN model with layers defined in the `Net` structure.
-    fn new(vs: &nn::Path) -> Net {
+    fn new(vs: &nn::Path, pooling: PoolingMethod) -> Net {
         let conv1 = nn::conv2d(vs, 1, 32, 5, Default::default());
         let conv2 = nn::conv2d(vs, 32, 64, 5, Default::default());
         let fc1 = nn::linear(vs, 1024, 1024, Default::default());
         let fc2 = nn::linear(vs, 1024, 10, Default::default());
-        Net { conv1, conv2, fc1, fc2 }
+        Net {
+            conv1,
+            conv2,
+            fc1,
+            fc2,
+            pooling,
+        }
+    }
+}
+
+trait TensorExt {
+    fn apply_pooling(&self, pooling: PoolingMethod, ksize: i64) -> Tensor;
+}
+
+impl TensorExt for Tensor {
+    fn apply_pooling(&self, pooling: PoolingMethod, ksize: i64) -> Tensor {
+        match pooling {
+            PoolingMethod::Max => self.max_pool2d_default(ksize),
+            PoolingMethod::Avg => self.avg_pool2d_default(ksize),
+        }
+    }
+}
+
+impl Debug for Net {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 
 // Implementing the forward pass of the CNN model with ReLU and Dropout.
 impl ModuleT for Net {
     fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
-        xs.view([-1, 1, 28, 28])  // Reshape input to 1x28x28 images.
-            .apply(&self.conv1)   // Apply first convolutional layer.
-            .avg_pool2d_default(2) // Avg pooling.
-            .apply(&self.conv2)   // Apply second convolutional layer.
-            .avg_pool2d_default(2) // Avg pooling.
-            .view([-1, 1024])     // Flatten.
-            .apply(&self.fc1)     // Apply first linear layer.
-            .relu()               // ReLU activation.
-            .dropout(0.5, train)  // Dropout layer for regularization.
-            .apply(&self.fc2)     // Final linear layer for classification.
+        xs.view([-1, 1, 28, 28]) // Reshape input to 1x28x28 images.
+            .apply(&self.conv1) // Apply first convolutional layer.
+            .apply_pooling(self.pooling, 2)
+            .apply(&self.conv2) // Apply second convolutional layer.
+            .apply_pooling(self.pooling, 2)
+            .view([-1, 1024]) // Flatten.
+            .apply(&self.fc1) // Apply first linear layer.
+            .relu() // ReLU activation.
+            .dropout(0.5, train) // Dropout layer for regularization.
+            .apply(&self.fc2) // Final linear layer for classification.
     }
 }
 
@@ -92,7 +124,7 @@ fn run_conv() -> Result<()> {
 
     // Use GPU if available, otherwise use CPU
     let vs = nn::VarStore::new(Device::cuda_if_available());
-    let net = Net::new(&vs.root()); // Initialize the CNN model.
+    let net = Net::new(&vs.root(), PoolingMethod::Max); // Initialize the CNN model.
     let mut opt = nn::Adam::default().build(&vs, 1e-4)?; // Set up the optimizer.
 
     // Reshape and normalize the training and test images
