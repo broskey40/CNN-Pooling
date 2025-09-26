@@ -83,14 +83,14 @@ impl Net {
 }
 
 trait TensorExt {
-    fn apply_pooling(&self, pooling: PoolingMethod, ksize: i64) -> Tensor;
+    fn apply_pooling(&self, pooling: PoolingMethod) -> Tensor;
 }
 
 impl TensorExt for Tensor {
-    fn apply_pooling(&self, pooling: PoolingMethod, ksize: i64) -> Tensor {
+    fn apply_pooling(&self, pooling: PoolingMethod) -> Tensor {
         match pooling {
-            PoolingMethod::Max => self.max_pool2d_default(ksize),
-            PoolingMethod::Avg => self.avg_pool2d_default(ksize),
+            PoolingMethod::Max => self.max_pool2d_default(2),
+            PoolingMethod::Avg => self.avg_pool2d_default(2),
         }
     }
 }
@@ -106,9 +106,9 @@ impl ModuleT for Net {
     fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
         xs.view([-1, 1, 28, 28]) // Reshape input to 1x28x28 images.
             .apply(&self.conv1) // Apply first convolutional layer.
-            .apply_pooling(self.pooling, 2)
+            .apply_pooling(self.pooling)
             .apply(&self.conv2) // Apply second convolutional layer.
-            .apply_pooling(self.pooling, 2)
+            .apply_pooling(self.pooling)
             .view([-1, 1024]) // Flatten.
             .apply(&self.fc1) // Apply first linear layer.
             .relu() // ReLU activation.
@@ -124,7 +124,7 @@ fn run_conv() -> Result<()> {
 
     // Use GPU if available, otherwise use CPU
     let vs = nn::VarStore::new(Device::cuda_if_available());
-    let net = Net::new(&vs.root(), PoolingMethod::Max); // Initialize the CNN model.
+    let net = Net::new(&vs.root(), PoolingMethod::Avg); // Initialize the CNN model.
     let mut opt = nn::Adam::default().build(&vs, 1e-4)?; // Set up the optimizer.
 
     // Reshape and normalize the training and test images
