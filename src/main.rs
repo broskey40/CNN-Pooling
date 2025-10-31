@@ -95,11 +95,11 @@ fn run_conv() -> Result<()> {
     let net = Net::new(&vs.root()); // Initialize the CNN model.
     let mut opt = nn::Adam::default().build(&vs, 1e-4)?; // Set up the optimizer.
 
-    // Reshape and normalize the training and test images
-    let train_images = m.train_images.view([-1, 1, 28, 28]) / 255.0;
-    let train_labels = m.train_labels;
-    let test_images = m.test_images.view([-1, 1, 28, 28]) / 255.0;
-    let test_labels = m.test_labels;
+    // Reshape and normalize the training and test images, then move to GPU
+    let train_images = (m.train_images.view([-1, 1, 28, 28]) / 255.0).to(vs.device());
+    let train_labels = m.train_labels.to(vs.device());
+    let test_images = (m.test_images.view([-1, 1, 28, 28]) / 255.0).to(vs.device());
+    let test_labels = m.test_labels.to(vs.device());
 
     // Training loop for the CNN model.
     for epoch in 1..=10 {

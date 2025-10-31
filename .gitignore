@@ -1,1 +1,34 @@
+# Rust build artifacts
 /target
+Cargo.lock
+
+# LibTorch downloads (too large to commit)
+/libtorch-cuda
+*.zip
+
+# MNIST dataset
+/data
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python (if using Python tools)
+Pipfile.lock
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+build.log
+
+# OS-specific
+Thumbs.db
+desktop.ini
+
+# Claude
+.claude/
